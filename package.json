@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "npx tsc",
     "start": "node dist/server.js",
     "dev": "nodemon src/server.ts",
     "postinstall": "prisma generate"
@@ -19,7 +19,8 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "pg": "^8.20.0"
+    "pg": "^8.20.0",
+    "typescript": "^6.0.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
@@ -27,7 +28,6 @@
     "@types/node": "^25.6.1",
     "nodemon": "^3.1.14",
     "prisma": "^7.8.0",
-    "ts-node": "^10.9.2",
-    "typescript": "^6.0.3"
+    "ts-node": "^10.9.2"
   }
 }
