@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// 1. USERS & DEVICES (Identity Layer)
+// ==========================================
+
+model User {
+  id               String    @id @default(uuid()) @db.Uuid
+  firstName        String    @map("first_name") @db.VarChar(100)
+  phoneNumber      String    @unique @map("phone_number") @db.VarChar(20)
+  marketingConsent Boolean   @default(false) @map("marketing_consent")
+  termsAccepted    Boolean   @default(true) @map("terms_accepted")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  lastLogin        DateTime  @default(now()) @map("last_login") @db.Timestamptz
+  
+  devices          Device[]
+
+  @@map("users")
+}
+
+model Device {
+  macAddress      String    @id @map("mac_address") @db.VarChar(17)
+  userId          String    @map("user_id") @db.Uuid
+  deviceType      String?   @map("device_type") @db.VarChar(50)
+  firstSeen       DateTime  @default(now()) @map("first_seen") @db.Timestamptz
+  lastSeen        DateTime  @default(now()) @map("last_seen") @db.Timestamptz
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessions        NetworkSession[]
+  adImpressions   AdImpression[]
+
+  @@index([userId], name: "idx_devices_user_id")
+  @@map("devices")
+}
+
+// ==========================================
+// 2. INFRASTRUCTURE & NETWORK (Access Layer)
+// ==========================================
+
+model Router {
+  nasId           String    @id @map("nas_id") @db.VarChar(50)
+  neighborhood    String    @db.VarChar(100)
+  latitude        Decimal?  @db.Decimal(10, 8)
+  longitude       Decimal?  @db.Decimal(11, 8)
+  status          String?   @default("active") @db.VarChar(20)
+
+  sessions        NetworkSession[]
+  adImpressions   AdImpression[]
+
+  @@map("routers")
+}
+
+model NetworkSession {
+  id              String    @id @default(uuid()) @db.Uuid
+  macAddress      String?   @map("mac_address") @db.VarChar(17)
+  nasId           String?   @map("nas_id") @db.VarChar(50)
+  tierMinutes     Int       @map("tier_minutes")
+  bandwidthMbps   Int?      @default(5) @map("bandwidth_mbps")
+  startedAt       DateTime  @default(now()) @map("started_at") @db.Timestamptz
+  expiresAt       DateTime? @map("expires_at") @db.Timestamptz
+
+  device          Device?   @relation(fields: [macAddress], references: [macAddress])
+  router          Router?   @relation(fields: [nasId], references: [nasId])
+
+  @@index([macAddress], name: "idx_sessions_mac")
+  @@map("network_sessions")
+}
+
+// ==========================================
+// 3. AD ENGINE (Monetization Layer)
+// ==========================================
+
+model AdCampaign {
+  id                 String    @id @db.VarChar(50)
+  advertiserName     String    @map("advertiser_name") @db.VarChar(100)
+  title              String    @db.VarChar(255)
+  mediaType          String?   @map("media_type") @db.VarChar(10)
+  mediaUrl           String    @map("media_url") @db.Text
+  durationSeconds    Int       @map("duration_seconds")
+  targetNeighborhood String?   @map("target_neighborhood") @db.VarChar(100)
+  isActive           Boolean?  @default(true) @map("is_active")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  impressions        AdImpression[]
+
+  @@map("ad_campaigns")
+}
+
+model AdImpression {
+  id              String    @id @default(uuid()) @db.Uuid
+  adId            String?   @map("ad_id") @db.VarChar(50)
+  macAddress      String?   @map("mac_address") @db.VarChar(17)
+  nasId           String?   @map("nas_id") @db.VarChar(50)
+  watchedAt       DateTime  @default(now()) @map("watched_at") @db.Timestamptz
+
+  ad              AdCampaign? @relation(fields: [adId], references: [id])
+  device          Device?     @relation(fields: [macAddress], references: [macAddress])
+  router          Router?     @relation(fields: [nasId], references: [nasId])
+
+  @@index([adId], name: "idx_impressions_ad")
+  @@index([macAddress], name: "idx_impressions_mac")
+  @@index([watchedAt], name: "idx_impressions_time")
+  @@map("ad_impressions")
+}
